@@ -1100,7 +1100,7 @@ class Supervisor {
           generation: context.generation,
           ...result,
         });
-        this.logLine('BTG', 'success', `Web 就绪 — HTTP ${result.statusCode}，延迟 ${result.latencyMs}ms`);
+        this.logLine('Bili-Ticket-Go', 'success', `Web 就绪 — HTTP ${result.statusCode}，延迟 ${result.latencyMs}ms`);
       }
       if (context.mode === 'managed'
           && this.child === context.btgChild
@@ -1141,7 +1141,7 @@ class Supervisor {
             generation: context.generation,
             consecutiveFailures: failures,
           });
-          this.logLine('BTG', 'warn', `健康探测连续失败 ${failures} 次，请求重启 managed 进程`);
+          this.logLine('Bili-Ticket-Go', 'warn', `健康探测连续失败 ${failures} 次，请求重启 managed 进程`);
           this.terminateManagedChild('btg-health-failure');
         } else if (context.mode === 'external'
             && failures % this.config.btgHealth.failureThreshold === 0) {
@@ -1198,7 +1198,7 @@ class Supervisor {
         this.externalProcesses = matches;
         this.state = 'monitoring-external-process';
         if (changed) this.logger.event('existing-btg-process-detected', { processes: matches });
-        if (changed) this.logLine('BTG', 'warn', `检测到外部进程 ${matches.map((p) => `PID ${p.pid}`).join(', ')}，仅监控不接管，退出后自动拉起`);
+        if (changed) this.logLine('Bili-Ticket-Go', 'warn', `检测到外部进程 ${matches.map((p) => `PID ${p.pid}`).join(', ')}，仅监控不接管，退出后自动拉起`);
         const externalKey = `external:${matches.map((processInfo) => processInfo.pid).sort().join(',')}`;
         this.startBtgHealthMonitor(externalKey, 'external');
         this.scheduleExternalPoll();
@@ -1275,7 +1275,7 @@ class Supervisor {
         executable: this.config.executablePath,
         args: this.config.args,
       });
-      this.logLine('BTG', 'info', `已启动 — PID ${child.pid}，generation ${generation}`);
+      this.logLine('Bili-Ticket-Go', 'info', `已启动 — PID ${child.pid}，generation ${generation}`);
       this.startBtgHealthMonitor(`managed:${generation}`, 'managed', generation, child);
     });
     child.once('error', (error) => {
@@ -1353,7 +1353,7 @@ class Supervisor {
       generation,
     };
     this.logger.event('btg-exited', this.lastExit);
-    this.logLine('BTG', 'warn', `已退出 — code=${code}${signal ? ` signal=${signal}` : ''}（${exitCodeHex(code)}），generation ${generation}`);
+    this.logLine('Bili-Ticket-Go', 'warn', `已退出 — code=${code}${signal ? ` signal=${signal}` : ''}（${exitCodeHex(code)}），generation ${generation}`);
     if (this.stopping) {
       this.state = 'stopping';
       return;
@@ -1383,7 +1383,7 @@ class Supervisor {
       attempt: this.backoffAttempt,
       nextRestartAt: new Date(this.nextRestartAt).toISOString(),
     });
-    this.logLine('BTG', 'warn', `${delayMs}ms 后重启（第 ${this.backoffAttempt} 次尝试，原因 ${reason}）`);
+    this.logLine('Bili-Ticket-Go', 'warn', `${delayMs}ms 后重启（第 ${this.backoffAttempt} 次尝试，原因 ${reason}）`);
     clearTimeout(this.restartTimer);
     this.restartTimer = setTimeout(() => {
       this.restartTimer = null;

@@ -16,7 +16,7 @@ CHANGELOG 层级结构：`#` 版本号 > `##` 日期 > `###` 模块 > `####` 分
 - `printRecoveryLine`：解析 helper 输出的每行 JSON 记录（`skipped` 无任务/已有活跃任务、`restartClick` 点击结果、`restartVerified` 恢复成功、页面探针等），翻译成带级别颜色的 `[Recovery]` 摘要
 
 #### 变更
-- 关键节点摘要标签从内嵌英文 `[BTG]/[Recovery]` 改为结构化 `[BTG]/[Recovery]/[Supervisor]` Tag + 中文正文，例如 `[BTG] 已启动 — PID 67890，generation 7`、`[Recovery] 恢复成功 — job_000102 → job_000103（状态 queued…）`
+- 关键节点摘要标签从内嵌英文 `[BTG]/[Recovery]` 改为结构化 `[Bili-Ticket-Go]/[Recovery]/[Supervisor]` Tag + 中文正文，例如 `[Bili-Ticket-Go] 已启动 — PID 67890，generation 7`、`[Recovery] 恢复成功 — job_000102 → job_000103（状态 queued…）`
 - 恢复 helper 的 stdout/stderr 不再原样 tee：日志文件 `job-recovery-*.log` 仍落 helper 原始输出，live 控制台改为经 `printRecoveryLine` 解析后的彩色摘要（BTG 自由文本输出仍原样 tee，不做解析）
 - 仅在 `process.stdout.isTTY` 为真且未设 `NO_COLOR` 时着色；重定向/管道/session 0 自动降级为纯文本，设 `NO_COLOR=1` 可强制关闭
 
