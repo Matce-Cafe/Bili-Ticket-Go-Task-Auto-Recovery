@@ -14,10 +14,11 @@
 bili-ticket-go-task-auto-recovery.js   守护进程主程序
 ├── loadConfig()                读取并严格校验配置（路径防穿越、端口范围、互斥项）
 ├── named pipe 单实例           IPC 管道名 = BTG 应用目录 SHA256 前 16 位
+├── 彩色控制台日志              ANSI 常量 + logLine(tag,level,msg)，仅 TTY 着色、NO_COLOR 降级
 ├── BTG 子进程管理
 │   ├── spawn(shell:false, cwd=BTG 应用目录)
 │   ├── 启动前 Win32_Process 核对完整 EXE 路径（外部进程只监控不接管）
-│   ├── stdout/stderr tee + DailyFile 按本地日期切分日志
+│   ├── stdout/stderr tee（自由文本原样透传）+ DailyFile 按本地日期切分日志
 │   └── 退避重启 1/2/4/8/16/32/60s，连续 5min 后归零
 ├── 健康监控
 │   ├── 主动探测 BTG Web (:18080) readiness
@@ -26,6 +27,7 @@ bili-ticket-go-task-auto-recovery.js   守护进程主程序
 ├── 恢复 helper 调度
 │   ├── 新 generation Web 就绪 → 读 order_jobs.json 预检 active job
 │   ├── oncePerGeneration 最多调一次 helper
+│   ├── helper stdout/stderr 经 LineDecoder 切行 + printRecoveryLine 解析 JSON 着色打印
 │   └── BTG 退出时终止 helper + Edge 子进程树
 └── IPC 命令 status / restart / stop / run
 
@@ -45,7 +47,8 @@ start.bat   一键启动入口
 ## 行为和安全边界
 
 - BTG 始终通过 `spawn(..., { shell: false, cwd: <BTG 应用目录> })` 启动，参数来自配置且必须包含 `-web` 和 `-no-browser`。
-- `consoleTee: true` 时，守护进程把 BTG 子进程 stdout/stderr 原样 tee 到自己的 stdout，并在 BTG 启动/退出/重启、Web 就绪、恢复 helper 起停、外部进程接管、健康失败重启等关键节点打印一行带时间戳摘要。`start.bat` 启动时显示在桌面控制台窗口；session 0（计划任务 S4U）下 `process.stdout.write` 失败会被静默吞掉，不影响守护逻辑。
+- `consoleTee: true` 时，守护进程把 BTG 子进程 stdout/stderr 原样 tee 到自己的 stdout，并在 BTG 启动/退出/重启、Web 就绪、恢复 helper 起停、外部进程接管、健康失败重启等关键节点打印一行带时间戳的彩色摘要（风格参考 Google-AI-Mode-Adapter：`HH:MM:SS [Tag] 消息`，`[Tag]` 按级别着色——cyan=info、green=success、yellow=warn、red=error，时间戳 dim）。仅在 stdout 是真 TTY 时着色，重定向/管道/session 0 自动降级为纯文本；设 `NO_COLOR` 环境变量可强制关闭。`start.bat` 启动时显示在桌面控制台窗口；session 0（计划任务 S4U）下 `process.stdout.write` 失败会被静默吞掉，不影响守护逻辑。
+- 恢复 helper 的 stdout/stderr 由守护进程解析后再打印：helper 输出的每行 JSON 记录（`skipped`/`restartClick`/`restartVerified`/页面探针等）被 `LineDecoder` 切分、`printRecoveryLine` 翻译成带级别颜色的 `[Recovery]` 摘要；日志文件 `job-recovery-*.log` 仍落 helper 原始输出（纯文本，不含 ANSI 码）。BTG 子进程的输出是自由文本（非 JSON），保持原样 tee 不做解析。
 - 路径防穿越：`executable`、`logDirectory`、`jobsFile`、`requiredFiles` 等相对路径经 `resolveInside` 校验不得逃逸出 BTG 应用目录或守护目录。
 - `acceptTerms` 必须显式布尔值。守护进程不会盲写输入；只有 BTG 输出命中“规约/条款 + Y/N”组合提示后，才向该次子进程写入一次 `Y`。
 - named pipe 单实例：管道名由 BTG 应用目录哈希生成，同一应用目录只能运行一个守护进程。

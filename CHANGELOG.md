@@ -2,6 +2,24 @@
 
 CHANGELOG 层级结构：`#` 版本号 > `##` 日期 > `###` 模块 > `####` 分类（新增/修复/变更）。
 
+# 1.2.0
+
+## 2026-07-28
+
+控制台日志彩色化，桌面窗口里 BTG 起停、Web 就绪、恢复 helper 进度一眼可辨。日志文件保持纯文本不受影响。
+
+### 守护进程
+
+#### 新增
+- 彩色控制台日志：新增 `ANSI` 颜色常量、`LEVEL_COLOR` 级别映射、`logLine(tag, level, message)`，关键节点摘要改为 `HH:MM:SS [Tag] 消息` 格式，`[Tag]` 按级别着色（cyan=info、green=success、yellow=warn、red=error），时间戳 dim。风格参考 Google-AI-Mode-Adapter 的 `[Adapter]`/`[AI]` 彩色标签
+- `LineDecoder` 字节流切行器：把 helper 的 stdout/stderr 按换行切成完整行逐行回调
+- `printRecoveryLine`：解析 helper 输出的每行 JSON 记录（`skipped` 无任务/已有活跃任务、`restartClick` 点击结果、`restartVerified` 恢复成功、页面探针等），翻译成带级别颜色的 `[Recovery]` 摘要
+
+#### 变更
+- 关键节点摘要标签从内嵌英文 `[BTG]/[Recovery]` 改为结构化 `[BTG]/[Recovery]/[Supervisor]` Tag + 中文正文，例如 `[BTG] 已启动 — PID 67890，generation 7`、`[Recovery] 恢复成功 — job_000102 → job_000103（状态 queued…）`
+- 恢复 helper 的 stdout/stderr 不再原样 tee：日志文件 `job-recovery-*.log` 仍落 helper 原始输出，live 控制台改为经 `printRecoveryLine` 解析后的彩色摘要（BTG 自由文本输出仍原样 tee，不做解析）
+- 仅在 `process.stdout.isTTY` 为真且未设 `NO_COLOR` 时着色；重定向/管道/session 0 自动降级为纯文本，设 `NO_COLOR=1` 可强制关闭
+
 # 1.1.0
 
 ## 2026-07-27

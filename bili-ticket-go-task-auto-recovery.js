@@ -25,6 +25,34 @@ const IPC_PATH = process.platform === 'win32'
   ? `\\\\.\\pipe\\bili-ticket-go-task-auto-recovery-${INSTANCE_KEY}`
   : path.join(os.tmpdir(), `bili-ticket-go-task-auto-recovery-${INSTANCE_KEY}.sock`);
 
+// 控制台彩色日志，风格参考 Google-AI-Mode-Adapter：[Tag] 前缀按级别着色，正文保持纯文本。
+// 仅 live 控制台着色；事件日志（jsonl）与 BTG/helper 日志文件保持纯文本，不混入 ANSI 码。
+const ANSI = {
+  reset: '\x1b[0m',
+  dim: '\x1b[2m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  magenta: '\x1b[35m',
+};
+const LEVEL_COLOR = {
+  info: ANSI.cyan,
+  success: ANSI.green,
+  warn: ANSI.yellow,
+  error: ANSI.red,
+};
+// 遵循 NO_COLOR 约定；仅在 stdout 是真 TTY 时着色（重定向/管道/session 0 自动降级为纯文本）。
+const COLOR_ENABLED = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
+const ANSI_STRIP_RE = /\[[0-9;?]*[ -/]*[@-~]/g;
+function stripAnsi(value) {
+  return typeof value === 'string' ? value.replace(ANSI_STRIP_RE, '') : value;
+}
+function consoleTimePrefix(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 function localDay(date = new Date()) {
   const pad = (value) => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -77,6 +105,21 @@ class Logger {
       type,
       ...fields,
     })}\n`);
+  }
+}
+
+// 把字节流按 \n 切分成完整行，回调逐行返回（保留最后一行不完整片段等待后续数据）。
+class LineDecoder {
+  constructor() { this.buffer = ''; }
+
+  feed(chunk, onLine) {
+    this.buffer += chunk.toString('utf8');
+    let newline;
+    while ((newline = this.buffer.indexOf('\n')) >= 0) {
+      const line = this.buffer.slice(0, newline).replace(/\r$/, '');
+      this.buffer = this.buffer.slice(newline + 1);
+      if (line) onLine(line);
+    }
   }
 }
 
@@ -738,11 +781,65 @@ class Supervisor {
     try { process.stdout.write(chunk); } catch (_) { /* no attached console, e.g. session 0 */ }
   }
 
-  consoleLine(message) {
+  // 打印一行带时间戳、彩色 [Tag] 前缀的生命周期摘要到 live 控制台。
+  // tag      — 标签文本，如 BTG / Recovery / Supervisor
+  // level    — info | success | warn | error
+  // message  — 纯文本正文（不含 ANSI 码）
+  consoleLine(message) { return this.logLine('Supervisor', 'info', message); }
+
+  logLine(tag, level, message) {
     if (!this.config.consoleTee) return;
+    const color = LEVEL_COLOR[level] || ANSI.cyan;
+    const time = consoleTimePrefix();
     try {
-      process.stdout.write(`${new Date().toISOString()} ${message}\n`);
+      if (COLOR_ENABLED) {
+        process.stdout.write(
+          `${ANSI.dim}${time}${ANSI.reset} ${color}[${tag}]${ANSI.reset} ${message}\n`,
+        );
+      } else {
+        process.stdout.write(`${time} [${tag}] ${message}\n`);
+      }
     } catch (_) { /* no attached console, e.g. session 0 */ }
+  }
+
+  // 解析 helper 的一行 stdout/stderr（JSON 记录或纯文本），着色打印到 live 控制台。
+  // helper 输出的 JSON 记录含义见 bili-ticket-go-task-recover-latest.js。
+  printRecoveryLine(line, streamName) {
+    if (!this.config.consoleTee) return;
+    let parsed = null;
+    try { parsed = JSON.parse(line); } catch { parsed = null; }
+    if (!parsed || typeof parsed !== 'object') {
+      this.logLine('Recovery', streamName === 'stderr' ? 'warn' : 'info', stripAnsi(line));
+      return;
+    }
+    if (parsed.skipped) {
+      const reason = parsed.reason || 'skipped';
+      if (reason === 'an active job already exists') {
+        this.logLine('Recovery', 'success', `已有活跃任务，跳过恢复（activeJobId=${parsed.activeJobId ?? '未知'}）`);
+      } else {
+        this.logLine('Recovery', 'warn', String(parsed.message || reason));
+      }
+      return;
+    }
+    if (parsed.restartVerified) {
+      this.logLine('Recovery', 'success',
+        `恢复成功 — ${parsed.sourceJobId} → ${parsed.newJobId}（状态 ${parsed.status ?? '未知'}，项目 ${parsed.projectId ?? '未知'}，日期 ${parsed.selectedDate ?? '未知'}）`);
+      return;
+    }
+    if (parsed.restartClick) {
+      const click = parsed.restartClick;
+      this.logLine('Recovery', click.clicked ? 'info' : 'warn',
+        `点击恢复按钮 — ${click.clicked ? '已点击' : `未点击：${click.reason || '未知'}`}${click.clicked ? `（按钮 ${click.title || '无标题'}）` : ''}`);
+      return;
+    }
+    if (parsed.href !== undefined && parsed.sourceJobId) {
+      // helper 启动阶段的探针报告：认证状态 + 恢复按钮数量
+      const auth = parsed.authenticated ? '已登录' : '未登录';
+      this.logLine('Recovery', 'info', `页面就绪 — ${parsed.href}（${auth}，恢复按钮 ${parsed.restartButtonCount ?? 0} 个，目标 job ${parsed.sourceJobId}）`);
+      return;
+    }
+    // 兜底：完整 JSON 纯文本打印（用于诊断报告等大对象）。
+    this.logLine('Recovery', streamName === 'stderr' ? 'warn' : 'info', stripAnsi(JSON.stringify(parsed)));
   }
 
   status() {
@@ -908,7 +1005,7 @@ class Supervisor {
       recoveryEnabled: this.config.taskRecovery.enabled,
       jobRecoveryEnabled: this.config.jobRecovery.enabled,
     });
-    this.consoleLine(`Bili-Ticket-Go-Task-Auto-Recovery — PID ${process.pid}, console tee on, watching ${path.basename(this.config.executablePath)}`);
+    this.logLine('Supervisor', 'info', `Bili-Ticket-Go-Task-Auto-Recovery 守护进程启动 — PID ${process.pid}，监控 ${path.basename(this.config.executablePath)}`);
     await this.checkThenStart();
   }
 
@@ -1003,7 +1100,7 @@ class Supervisor {
           generation: context.generation,
           ...result,
         });
-        this.consoleLine(`[BTG] Web ready (${result.statusCode}, ${result.latencyMs}ms)`);
+        this.logLine('BTG', 'success', `Web 就绪 — HTTP ${result.statusCode}，延迟 ${result.latencyMs}ms`);
       }
       if (context.mode === 'managed'
           && this.child === context.btgChild
@@ -1044,7 +1141,7 @@ class Supervisor {
             generation: context.generation,
             consecutiveFailures: failures,
           });
-          this.consoleLine(`[BTG] unhealthy (${failures} consecutive failures) — requesting restart`);
+          this.logLine('BTG', 'warn', `健康探测连续失败 ${failures} 次，请求重启 managed 进程`);
           this.terminateManagedChild('btg-health-failure');
         } else if (context.mode === 'external'
             && failures % this.config.btgHealth.failureThreshold === 0) {
@@ -1101,7 +1198,7 @@ class Supervisor {
         this.externalProcesses = matches;
         this.state = 'monitoring-external-process';
         if (changed) this.logger.event('existing-btg-process-detected', { processes: matches });
-        if (changed) this.consoleLine(`[BTG] external process detected: ${matches.map((p) => `PID ${p.pid}`).join(', ')} — monitoring, will take over when it exits`);
+        if (changed) this.logLine('BTG', 'warn', `检测到外部进程 ${matches.map((p) => `PID ${p.pid}`).join(', ')}，仅监控不接管，退出后自动拉起`);
         const externalKey = `external:${matches.map((processInfo) => processInfo.pid).sort().join(',')}`;
         this.startBtgHealthMonitor(externalKey, 'external');
         this.scheduleExternalPoll();
@@ -1178,7 +1275,7 @@ class Supervisor {
         executable: this.config.executablePath,
         args: this.config.args,
       });
-      this.consoleLine(`[BTG] started PID ${child.pid} (generation ${generation})`);
+      this.logLine('BTG', 'info', `已启动 — PID ${child.pid}，generation ${generation}`);
       this.startBtgHealthMonitor(`managed:${generation}`, 'managed', generation, child);
     });
     child.once('error', (error) => {
@@ -1256,7 +1353,7 @@ class Supervisor {
       generation,
     };
     this.logger.event('btg-exited', this.lastExit);
-    this.consoleLine(`[BTG] exited code=${code}${signal ? ` signal=${signal}` : ''} (${exitCodeHex(code)}) generation ${generation}`);
+    this.logLine('BTG', 'warn', `已退出 — code=${code}${signal ? ` signal=${signal}` : ''}（${exitCodeHex(code)}），generation ${generation}`);
     if (this.stopping) {
       this.state = 'stopping';
       return;
@@ -1286,7 +1383,7 @@ class Supervisor {
       attempt: this.backoffAttempt,
       nextRestartAt: new Date(this.nextRestartAt).toISOString(),
     });
-    this.consoleLine(`[BTG] restart in ${delayMs}ms (attempt ${this.backoffAttempt}, reason ${reason})`);
+    this.logLine('BTG', 'warn', `${delayMs}ms 后重启（第 ${this.backoffAttempt} 次尝试，原因 ${reason}）`);
     clearTimeout(this.restartTimer);
     this.restartTimer = setTimeout(() => {
       this.restartTimer = null;
@@ -1511,13 +1608,17 @@ class Supervisor {
     this.jobRecoveryChild = helper;
     this.jobRecoveryChildGeneration = generation;
     this.jobRecoveryCancellationReason = null;
+    // helper 的 stdout 全是 JSON.stringify 单行结构化记录。supervisor 负责解析：
+    // 日志文件落纯文本（不含 ANSI 码），live 控制台按记录类型着色打印。
+    const stdoutDecoder = new LineDecoder();
+    const stderrDecoder = new LineDecoder();
     helper.stdout.on('data', (chunk) => {
       this.logger.recoveryStdout.write(chunk);
-      this.teeToConsole(chunk);
+      stdoutDecoder.feed(chunk, (line) => this.printRecoveryLine(line, 'stdout'));
     });
     helper.stderr.on('data', (chunk) => {
       this.logger.recoveryStderr.write(chunk);
-      this.teeToConsole(chunk);
+      stderrDecoder.feed(chunk, (line) => this.printRecoveryLine(line, 'stderr'));
     });
     helper.once('spawn', () => {
       if (this.jobRecoveryChild !== helper) return;
@@ -1528,7 +1629,7 @@ class Supervisor {
         startedAt: new Date(startedAt).toISOString(),
       };
       this.logger.event('job-recovery-helper-started', this.jobRecovery);
-      this.consoleLine(`[Recovery] helper started PID ${helper.pid} (generation ${generation})`);
+      this.logLine('Recovery', 'info', `helper 已启动 — PID ${helper.pid}，generation ${generation}`);
     });
     helper.once('error', (error) => {
       if (this.jobRecoveryChild !== helper) return;
@@ -1574,7 +1675,9 @@ class Supervisor {
         );
       }
       this.logger.event('job-recovery-helper-exited', this.jobRecovery);
-      this.consoleLine(`[Recovery] helper exited code=${code}${cancellationReason ? ` (${cancellationReason})` : (code === 0 ? ' OK' : '')} generation ${generation}`);
+      const level = cancellationReason ? 'warn' : (code === 0 ? 'success' : 'error');
+      const detail = cancellationReason ? `（${cancellationReason}）` : (code === 0 ? ' OK' : '');
+      this.logLine('Recovery', level, `helper 已退出 — code=${code}${detail}，generation ${generation}`);
       if (!this.stopping && !this.child) setImmediate(() => this.checkThenStart());
     });
     this.jobRecoveryTimeoutTimer = setTimeout(() => {
