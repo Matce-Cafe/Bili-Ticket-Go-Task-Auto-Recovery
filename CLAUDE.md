@@ -6,7 +6,7 @@
 
 核心流程：守护进程启动 BTG 子进程 → 轮询 BTG Web 就绪 → 健康端点汇总 → 退出则退避重启 → 新 generation Web 就绪后调用恢复 helper。
 
-> BTG 本体不在本仓库。本仓库只提供守护脚本、配置模板、浏览器恢复 helper 和 Windows 计划任务安装器。
+> BTG 本体不在本仓库。本仓库只提供守护脚本、配置模板、浏览器恢复 helper 和一键启动入口 `start.bat`。
 
 ## 架构
 
@@ -31,22 +31,21 @@ bili-ticket-go-task-auto-recovery.js   守护进程主程序
 
 bili-ticket-go-task-recover-latest.js   浏览器恢复 helper
 ├── 读 session_token + order_jobs.json
-├── 校验目标 job 仍是最新、无 active job、项目/日期一致
+├── 自动识别最新任务：无任务→退出 0 友好提示；有 active job→跳过；否则取最新 job
 ├── headless Edge CDP：登录 → 找「恢复这个任务」按钮 → 点击
 ├── 恢复锁 bili-ticket-go-task-recovery-state.json 防重复点击
 └── 校验新 active job 产生 → phase:verified / 否则 unverified
 
-install-bili-ticket-go-task-auto-recovery.ps1   Windows 计划任务安装器
-├── 校验必填文件 / Node ≥22 / 语法检查 / 文件 SHA256
-├── 注册任务 Interactive 首选 → S4U fallback → S4U LogonTrigger
-├── 升级保护：stop 旧进程 + 等待 named pipe 释放 + hash 校验
-└── 立即启动 + named pipe 验证期望实例与 BTG Web 就绪
+start.bat   一键启动入口
+├── 双击运行，切到自身目录
+├── 优先同目录便携 node.exe，回退 PATH 中的 node
+└── 运行 bili-ticket-go-task-auto-recovery.js run（监控已运行 BTG / 未运行则启动并恢复）
 ```
 
 ## 行为和安全边界
 
 - BTG 始终通过 `spawn(..., { shell: false, cwd: <BTG 应用目录> })` 启动，参数来自配置且必须包含 `-web` 和 `-no-browser`。
-- `consoleTee: true` 时，守护进程把 BTG 子进程 stdout/stderr 原样 tee 到自己的 stdout，并在 BTG 启动/退出/重启、Web 就绪、恢复 helper 起停、外部进程接管、健康失败重启等关键节点打印一行带时间戳摘要。Interactive 计划任务下显示在桌面控制台窗口；session 0（S4U）下 `process.stdout.write` 失败会被静默吞掉，不影响守护逻辑。
+- `consoleTee: true` 时，守护进程把 BTG 子进程 stdout/stderr 原样 tee 到自己的 stdout，并在 BTG 启动/退出/重启、Web 就绪、恢复 helper 起停、外部进程接管、健康失败重启等关键节点打印一行带时间戳摘要。`start.bat` 启动时显示在桌面控制台窗口；session 0（计划任务 S4U）下 `process.stdout.write` 失败会被静默吞掉，不影响守护逻辑。
 - 路径防穿越：`executable`、`logDirectory`、`jobsFile`、`requiredFiles` 等相对路径经 `resolveInside` 校验不得逃逸出 BTG 应用目录或守护目录。
 - `acceptTerms` 必须显式布尔值。守护进程不会盲写输入；只有 BTG 输出命中“规约/条款 + Y/N”组合提示后，才向该次子进程写入一次 `Y`。
 - named pipe 单实例：管道名由 BTG 应用目录哈希生成，同一应用目录只能运行一个守护进程。
@@ -143,7 +142,7 @@ Invoke-RestMethod http://127.0.0.1:18081/health
 
 ## 最近抢票任务恢复
 
-BTG 的 `/api/v1/query` 使用应用内部加密协议，不能安全猜测普通 REST 请求。因此默认启用同目录的 `bili-ticket-go-task-recover-latest.js` 浏览器 helper，并保持直接 endpoint 方式 `taskRecovery.enabled: false`。安装前必须把 helper 一并放到守护目录，否则安装器拒绝启动。
+BTG 的 `/api/v1/query` 使用应用内部加密协议，不能安全猜测普通 REST 请求。因此默认启用同目录的 `bili-ticket-go-task-recover-latest.js` 浏览器 helper，并保持直接 endpoint 方式 `taskRecovery.enabled: false`。helper 必须与守护脚本放在同一目录。
 
 每一代 BTG 子进程启动后，守护进程先轮询确认 18080 Web readiness，再等待 `jobRecovery.readyDelayMs`（默认 2s），然后读 `data/web/order_jobs.json`。瞬态的文件缺失、共享冲突或 JSON 半写入会在同一代有限重试。当前 BTG 历史记录是 wrapper 结构，因此默认检查 `job.status`/`snapshot.state`，从 `job.id` 读 ID：
 
@@ -158,7 +157,7 @@ helper 用 `shell: false` 在守护目录运行，stdout/stderr 分别写入每�
 
 `jobRecovery.command` 默认 `{{node}}`，表示复用运行守护进程的同一个 `node.exe`；参数支持 `{{generation}}` 与 `{{jobsFile}}` 占位符。若 JSON 有外层结构，必须明确填 `jobsArrayPath`；BTG 升级后 schema 改变，必须同步修改 `jobIdPath` 和 `statusPaths`。
 
-恢复参数（`--project-id`、`--selected-date`）写在配置里，helper 会再次校验“目标仍是最新记录、无 active job、项目与日期一致”，只点击一次且必须观察到新 job ID 才以退出码 0 报告成功。
+helper 自动识别 BTG 当前正在运行或历史最新运行的任务，无需配置 project-id / selected-date。它会校验“目标仍是最新记录、无 active job”，只点击一次且必须观察到新 job ID 才以退出码 0 报告成功；没有任何任务时退出码 0 并打印友好提示。
 
 ### 手动恢复最近抢票任务
 
@@ -178,7 +177,7 @@ Remove-Item .\bili-ticket-go-task-recovery-state.json -Force -ErrorAction Silent
 
 `bili-ticket-go-task-recover-latest.js` 用 headless Edge 的 CDP 协议（`--remote-debugging-port=0` 随机端口，读 `DevToolsActivePort` 文件获取）驱动：
 
-1. 读 `data/web/session_token` 与 `data/web/order_jobs.json`，校验目标 job 仍是最新、无 active job、`can_execute` 为 true、项目 ID 与日期与配置一致。
+1. 读 `data/web/session_token` 与 `data/web/order_jobs.json`：无任务→退出 0 友好提示；有 active job→跳过；否则取最新 job，校验其 `can_execute` 为 true。
 2. 导航到 `http://127.0.0.1:18080/jobs`；若出现登录表单，把 token 作为 CDP 调用参数注入密码框并提交（token 仅作 `JSON.stringify` 后的 CDP 参数，从不打印）。
 3. 查找标题/文本含「恢复这个任务 / Restart this job」的按钮；找不到则先点「重新载入 / Reload」重试。
 4. 写恢复锁 `phase: clicking`，点击按钮，等待后重新读 `order_jobs.json` 校验是否产生新的 active job。
@@ -186,12 +185,12 @@ Remove-Item .\bili-ticket-go-task-recovery-state.json -Force -ErrorAction Silent
 
 临时 profile 目录在 `os.tmpdir()` 下按 PID 生成，finally 块清理（Edge 仍占用文件时不因清理失败中断成功恢复）。
 
-## 安装器注意
+## 启动入口
 
-- **必须用 elevated 会话运行**：注册 S4U/`AtStartup` 触发器需要管理员权限。非 elevated 会话会在注册阶段报“拒绝访问”。
-- **首选 Interactive**：让守护进程在用户桌面会话以可见控制台窗口运行，配合 `consoleTee` 实时回显 BTG 输出。代价是必须有人登录，会话注销即停止——**关闭桌面控制台窗口会杀死守护进程与 BTG 整棵进程树**（`0xC000013A`）。S4U fallback 不依赖登录、开机即跑、session 0 不可见，仅作保底。
-- **PowerShell 5.1 兼容**：安装器在 `Set-StrictMode -Version Latest` 下不能用 `$var = if (...) { ... } else { ... }` 的 if-as-expression，也不能用 `Split-Path -LiteralPath X -Leaf/-Parent`——两者在 Windows PowerShell 5.1 下触发 ParameterBinder bug，误报 `AmbiguousParameterSet` 并中止。已改用普通 if/else + `[System.IO.Path]::GetFileName/GetDirectoryName`，对 PS 5.1 和 PS 7 都安全。
-- **升级保护**：检测到运行中的守护进程时先 `stop` 并等待 named pipe 释放；脚本/配置 SHA256 不匹配则拒绝接管，避免模糊升级。
+- **双击 `start.bat` 即开始守护**：脚本切到自身目录，优先用同目录便携 `node.exe`，找不到则回退 PATH 中的 `node`，运行 `bili-ticket-go-task-auto-recovery.js run`。
+- BTG 已运行 → 守护进程只监控不接管，BTG 退出后自动拉起并恢复最新任务；BTG 未运行 → 守护进程自动启动 BTG，Web 就绪后自动恢复最新一条任务。
+- Interactive 会话，进程生命周期绑定到 `start.bat` 打开的控制台窗口——**关闭窗口会杀死守护进程与 BTG 整棵进程树**（`0xC000013A`）。需要开机自启或断开 RDP 不死时，可自行用 `schtasks` 注册任务调用 `start.bat` 或直接调 `node bili-ticket-go-task-auto-recovery.js run`。
+- 不再提供计划任务安装器；如需计划任务，外部自行注册即可。
 
 ## 依赖
 

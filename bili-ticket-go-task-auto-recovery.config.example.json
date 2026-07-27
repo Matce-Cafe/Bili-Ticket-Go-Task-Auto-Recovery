@@ -42,9 +42,7 @@
     "args": [
       "bili-ticket-go-task-recover-latest.js",
       "latest",
-      "--restart-latest",
-      "--project-id=替换为你的项目ID",
-      "--selected-date=替换为你的目标日期YYYY-MM-DD"
+      "--restart-latest"
     ],
     "requiredFiles": [
       "bili-ticket-go-task-recover-latest.js"

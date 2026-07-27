@@ -2,6 +2,35 @@
 
 CHANGELOG 层级结构：`#` 版本号 > `##` 日期 > `###` 模块 > `####` 分类（新增/修复/变更）。
 
+# 1.1.0
+
+## 2026-07-27
+
+上手门槛大幅降低：双击 `start.bat` 即开始守护，无需装计划任务、无需手填项目参数，helper 自动识别任务。
+
+### 启动入口
+
+#### 新增
+- `start.bat` 一键启动入口：双击即开始守护，切到自身目录，优先用同目录便携 `node.exe`、回退 PATH 中的 `node`，运行 `bili-ticket-go-task-auto-recovery.js run`；找不到 Node 时友好提示
+- BTG 已运行则监控不接管，BTG 未运行则自动启动并恢复最新任务，控制台窗口实时回显 BTG 输出与生命周期事件
+
+### 浏览器恢复 helper
+
+#### 变更
+- 任务自动识别：helper 不再要求配置 `--project-id` / `--selected-date`，自动取 BTG 当前正在运行或历史最新运行的任务，移除项目/日期校验与过去日期校验
+- `order_jobs.json` 不存在或为空时退出码 0 并打印友好提示（「请先在 BTG Web 创建任务」），守护进程不报错，下一代 BTG 启动后重试；原来直接抛 `No job history is available`
+- 已有活跃任务时退出码 0 跳过恢复（helper 职责是保证存在活跃任务），原来抛 `Refusing restart`；输出 `skipped:true` 便于守护进程识别
+
+### 配置
+
+#### 变更
+- `bili-ticket-go-task-auto-recovery.config.example.json` 移除 `--project-id` 与 `--selected-date` 两个 args，开箱即用
+
+### 安装器
+
+#### 移除
+- 移除 `install-bili-ticket-go-task-auto-recovery.ps1` 计划任务安装器：双击 `start.bat` 取代安装器成为主入口，不再需要 elevated 会话注册计划任务。需要开机自启/断开 RDP 不死的用户可自行用 `schtasks` 注册任务调用入口
+
 # 1.0.0
 
 ## 2026-07-27

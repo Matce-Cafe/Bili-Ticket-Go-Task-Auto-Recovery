@@ -13,16 +13,17 @@ const appDir = path.basename(supervisorDir).toLowerCase() === 'bili-ticket-go-ta
 const tokenPath = path.join(appDir, 'data', 'web', 'session_token');
 const targetSelector = process.argv[2] || 'latest';
 const restartLatest = process.argv.includes('--restart-latest');
-const projectArg = process.argv.find((arg) => arg.startsWith('--project-id='));
-const dateArg = process.argv.find((arg) => arg.startsWith('--selected-date='));
-const allowedProjectId = projectArg ? projectArg.slice('--project-id='.length) : '';
-const allowedSelectedDate = dateArg ? dateArg.slice('--selected-date='.length) : '';
 const profileDir = path.join(os.tmpdir(), `btg-cdp-${process.pid}-${Date.now()}`);
 const jobsPath = path.join(appDir, 'data', 'web', 'order_jobs.json');
 const recoveryStatePath = path.join(supervisorDir, 'bili-ticket-go-task-recovery-state.json');
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// 没有可恢复任务时打印友好提示并以退出码 0 结束（守护进程据此知道无需操作、下一代重试）。
+function reportNoTask(message) {
+  process.stdout.write(`${JSON.stringify({ skipped: true, reason: 'no task to recover', message })}\n`);
 }
 
 async function waitFor(predicate, timeoutMs, label) {
@@ -38,10 +39,30 @@ async function waitFor(predicate, timeoutMs, label) {
 async function main() {
   const token = fs.readFileSync(tokenPath, 'utf8').trim();
   if (!token) throw new Error('Session token is empty');
-  const histories = JSON.parse(fs.readFileSync(jobsPath, 'utf8'));
-  if (!Array.isArray(histories) || histories.length === 0) throw new Error('No job history is available');
   const activeStates = new Set(['queued', 'running', 'starting', 'waiting_start']);
+  // 自动识别 BTG 当前正在运行或历史最新运行的任务：order_jobs.json 不存在或为空时，
+  // 友好提示用户先去 BTG Web 创建任务，退出码 0（守护进程不报错，下一代 BTG 起来后重试）。
+  let histories;
+  try {
+    histories = JSON.parse(fs.readFileSync(jobsPath, 'utf8'));
+  } catch {
+    reportNoTask('BTG 还没有任何蹲票任务记录（order_jobs.json 不存在），请先在 BTG Web 创建任务，守护进程会在下一次 BTG 启动后自动恢复。');
+    return;
+  }
+  if (!Array.isArray(histories) || histories.length === 0) {
+    reportNoTask('BTG 还没有任何蹲票任务记录，请先在 BTG Web 创建任务，守护进程会在下一次 BTG 启动后自动恢复。');
+    return;
+  }
   const activeBefore = histories.filter((item) => activeStates.has(String(item?.job?.status || item?.snapshot?.state || '').toLowerCase()));
+  // 已有活跃任务时无需恢复，视为成功（helper 的职责就是保证存在活跃蹲票任务）。
+  if (restartLatest && activeBefore.length > 0) {
+    process.stdout.write(`${JSON.stringify({
+      skipped: true,
+      reason: 'an active job already exists',
+      activeJobId: activeBefore[0]?.job?.id,
+    })}\n`);
+    return;
+  }
   const sorted = [...histories].sort((a, b) => {
     const aTime = Date.parse(a?.snapshot?.updated_at || a?.job?.created_at || '') || 0;
     const bTime = Date.parse(b?.snapshot?.updated_at || b?.job?.created_at || '') || 0;
@@ -51,20 +72,9 @@ async function main() {
   const candidate = sorted.find((item) => item?.job?.id === targetJobId);
   if (!candidate) throw new Error(`Target job was not found: ${targetJobId}`);
   if (sorted[0]?.job?.id !== targetJobId) throw new Error(`Target is no longer the latest job: ${targetJobId}`);
-  if (restartLatest && activeBefore.length > 0) {
-    throw new Error(`Refusing restart because an active job already exists: ${activeBefore[0]?.job?.id}`);
-  }
   if (restartLatest && candidate?.preview?.can_execute !== true) throw new Error('Target job is not executable');
   const selectedDate = String(candidate?.restart_draft?.selected_date || '');
   const projectId = String(candidate?.job?.project_id || '');
-  if (restartLatest && allowedProjectId && projectId !== allowedProjectId) {
-    throw new Error(`Latest job project mismatch: ${projectId}`);
-  }
-  if (restartLatest && allowedSelectedDate && selectedDate !== allowedSelectedDate) {
-    throw new Error(`Latest job date mismatch: ${selectedDate}`);
-  }
-  const today = new Date().toISOString().slice(0, 10);
-  if (restartLatest && selectedDate && selectedDate < today) throw new Error(`Target date is in the past: ${selectedDate}`);
   fs.mkdirSync(profileDir, { recursive: true });
 
   const edge = spawn(edgePath, [
