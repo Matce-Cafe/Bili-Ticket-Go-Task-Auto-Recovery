@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-[BiliTicketGo](https://github.com/HHsome/BiliTicketGo)（BTG）的 Windows 守护进程。BTG 以 `btg-windows-amd64-dynamic.exe -web -no-browser` 长期运行蹲票，本守护进程负责保活、健康监控、异常退避重启，并在每次重启后自动恢复最近一次抢票任务。
+[Bili-Ticket-Go](https://github.com/konaxia548/bili-ticket-go)（BTG）的 Windows 守护进程。BTG 以 `btg-windows-amd64-dynamic.exe -web -no-browser` 长期运行蹲票，本守护进程负责保活、健康监控、异常退避重启，并在每次重启后自动恢复最近一次抢票任务。
 
 核心流程：守护进程启动 BTG 子进程 → 轮询 BTG Web 就绪 → 健康端点汇总 → 退出则退避重启 → 新 generation Web 就绪后调用恢复 helper。
 

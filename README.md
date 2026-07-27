@@ -1,6 +1,6 @@
 # Bili-Ticket-Go-Task-Auto-Recovery
 
-[BiliTicketGo](https://github.com/HHsome/BiliTicketGo)（BTG）的 Windows 守护进程：保持 BTG 运行、监控健康、异常退避重启，并在每次重启后自动恢复最近一次抢票任务。
+[Bili-Ticket-Go](https://github.com/konaxia548/bili-ticket-go)（BTG）的 Windows 守护进程：保持 BTG 运行、监控健康、异常退避重启，并在每次重启后自动恢复最近一次抢票任务。
 
 > BTG 本体不包含在本仓库内。本仓库只提供守护脚本、配置、浏览器恢复 helper 和 Windows 计划任务安装器。
 
@@ -18,7 +18,7 @@ BTG 以 `btg-windows-amd64-dynamic.exe -web -no-browser` 长期运行蹲票，�
 ### 前置要求
 
 - Windows 10/11 x64
-- [BiliTicketGo](https://github.com/HHsome/BiliTicketGo) 本体（`btg-windows-amd64-dynamic.exe` 及 `data/`、`log/`、`model/`）已放在某个 BTG 应用目录，例如 `C:\Apps\Bili-Ticket-Go\`
+- [Bili-Ticket-Go](https://github.com/konaxia548/bili-ticket-go) 本体（`btg-windows-amd64-dynamic.exe` 及 `data/`、`log/`、`model/`）已放在某个 BTG 应用目录，例如 `C:\Apps\Bili-Ticket-Go\`
 - Microsoft Edge（恢复 helper 通过 CDP 驱动 Edge 点击恢复按钮）
 - Node.js 22 或更新版本（恢复 helper 使用全局 `WebSocket`）。把便携版 `node.exe` 放进守护目录即可，安装器会优先用它。
 

@@ -195,7 +195,7 @@ function Register-TaskAttempt {
         -Trigger $Triggers `
         -Principal $Principal `
         -Settings $Settings `
-        -Description 'Keeps BiliTicketGo running, monitors health, and auto-recovers the latest ticket task.'
+        -Description 'Keeps Bili-Ticket-Go running, monitors health, and auto-recovers the latest ticket task.'
     Register-ScheduledTask -TaskName $TaskName -InputObject $Definition -Force | Out-Null
     return $Mode
 }
