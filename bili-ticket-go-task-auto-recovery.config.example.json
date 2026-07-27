@@ -1,0 +1,109 @@
+{
+  "executable": "btg-windows-amd64-dynamic.exe",
+  "args": [
+    "-web",
+    "-no-browser"
+  ],
+  "acceptTerms": true,
+  "consoleTee": true,
+  "termsPromptPatterns": [
+    "(?:release|发布|发行).{0,120}(?:terms?|规约|规则|条款|协议|须知|免责声明).{0,240}(?:\\[?\\s*y(?:es)?\\s*[/\\\\]\\s*n(?:o)?\\s*\\]?|输入\\s*[Yy]|按\\s*[Yy])",
+    "(?:accept|agree|同意|接受).{0,120}(?:terms?|规约|规则|条款|协议|须知|免责声明).{0,240}(?:\\[?\\s*y(?:es)?\\s*[/\\\\]\\s*n(?:o)?\\s*\\]?|输入\\s*[Yy]|按\\s*[Yy])"
+  ],
+  "logDirectory": "bili-ticket-go-task-auto-recovery-logs",
+  "supervisorHealth": {
+    "host": "127.0.0.1",
+    "port": 18081
+  },
+  "btgHealth": {
+    "url": "http://127.0.0.1:18080/",
+    "intervalMs": 5000,
+    "timeoutMs": 2000,
+    "startupGraceMs": 30000,
+    "failureThreshold": 6,
+    "restartManagedOnFailure": true,
+    "acceptedStatusMin": 200,
+    "acceptedStatusMax": 499
+  },
+  "restart": {
+    "initialDelayMs": 1000,
+    "maxDelayMs": 60000,
+    "resetAfterMs": 300000
+  },
+  "duplicateCheck": {
+    "enabled": true,
+    "pollIntervalMs": 5000,
+    "queryTimeoutMs": 10000
+  },
+  "shutdownGraceMs": 10000,
+  "jobRecovery": {
+    "enabled": true,
+    "command": "{{node}}",
+    "args": [
+      "bili-ticket-go-task-recover-latest.js",
+      "latest",
+      "--restart-latest",
+      "--project-id=替换为你的项目ID",
+      "--selected-date=替换为你的目标日期YYYY-MM-DD"
+    ],
+    "requiredFiles": [
+      "bili-ticket-go-task-recover-latest.js"
+    ],
+    "jobsFile": "data/web/order_jobs.json",
+    "jobsArrayPath": "",
+    "jobIdPath": "job.id",
+    "statusPaths": [
+      "job.status",
+      "snapshot.state"
+    ],
+    "inactiveStatuses": [
+      "stopped",
+      "failed",
+      "completed",
+      "finished",
+      "cancelled",
+      "canceled",
+      "expired",
+      "success",
+      "succeeded",
+      "done",
+      "idle",
+      "已停止",
+      "失败",
+      "已完成",
+      "已取消",
+      "已过期"
+    ],
+    "readyDelayMs": 2000,
+    "timeoutMs": 180000,
+    "precheckRetryCount": 6,
+    "precheckRetryDelayMs": 2000,
+    "oncePerGeneration": true
+  },
+  "taskRecovery": {
+    "enabled": false,
+    "endpointVerified": false,
+    "verifiedEndpoint": "",
+    "allowNonLoopbackEndpoint": false,
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    "bodyTemplate": {
+      "jobId": "{{jobId}}"
+    },
+    "jobsFile": "data/web/order_jobs.json",
+    "jobsArrayPath": "",
+    "jobIdPath": "job.id",
+    "statusPath": "job.status",
+    "allowedStatuses": [],
+    "timestampPaths": [
+      "snapshot.updated_at",
+      "job.created_at",
+      "job.finished_at"
+    ],
+    "delayMs": 5000,
+    "timeoutMs": 10000,
+    "oncePerSupervisorRun": true
+  }
+}
