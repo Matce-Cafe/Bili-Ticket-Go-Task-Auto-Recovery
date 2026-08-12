@@ -6,12 +6,12 @@
 
 核心流程：守护进程启动 BTG 子进程 → 轮询 BTG Web 就绪 → 健康端点汇总 → 退出则退避重启 → 新 generation Web 就绪后调用恢复 helper。
 
-> BTG 本体不在本仓库。本仓库只提供守护脚本、配置模板、浏览器恢复 helper 和一键启动入口 `start.bat`。
+> BTG 本体不在本仓库。本仓库只提供守护脚本、配置模板、浏览器恢复 helper 和一键启动入口 `Start.bat`。
 
 ## 架构
 
 ```
-bili-ticket-go-task-auto-recovery.js   守护进程主程序
+Bili-Ticket-Go-Task-Auto-Recovery.js   守护进程主程序
 ├── loadConfig()                读取并严格校验配置（路径防穿越、端口范围、互斥项）
 ├── named pipe 单实例           IPC 管道名 = BTG 应用目录 SHA256 前 16 位
 ├── 彩色控制台日志              ANSI 常量 + logLine(tag,level,msg)，仅 TTY 着色、NO_COLOR 降级
@@ -31,24 +31,24 @@ bili-ticket-go-task-auto-recovery.js   守护进程主程序
 │   └── BTG 退出时终止 helper + Edge 子进程树
 └── IPC 命令 status / restart / stop / run
 
-bili-ticket-go-task-recover-latest.js   浏览器恢复 helper
+Bili-Ticket-Go-Task-Recover-Latest.js   浏览器恢复 helper
 ├── 读 session_token + order_jobs.json
 ├── 自动识别最新任务：无任务→退出 0 友好提示；有 active job→跳过；否则取最新 job
 ├── headless Edge CDP：登录 → 找「恢复这个任务」按钮 → 点击
-├── 恢复锁 bili-ticket-go-task-recovery-state.json 防重复点击
+├── 恢复锁 Bili-Ticket-Go-Task-Recovery-State.json 防重复点击
 └── 校验新 active job 产生 → phase:verified / 否则 unverified
 
-start.bat   一键启动入口
+Start.bat   一键启动入口
 ├── 双击运行，切到自身目录
 ├── 优先同目录便携 node.exe，回退 PATH 中的 node
-└── 运行 bili-ticket-go-task-auto-recovery.js run（监控已运行 BTG / 未运行则启动并恢复）
+└── 运行 Bili-Ticket-Go-Task-Auto-Recovery.js run（监控已运行 BTG / 未运行则启动并恢复）
 ```
 
 ## 行为和安全边界
 
 - BTG 始终通过 `spawn(..., { shell: false, cwd: <BTG 应用目录> })` 启动，参数来自配置且必须包含 `-web` 和 `-no-browser`。
-- `consoleTee: true` 时，守护进程把 BTG 子进程 stdout/stderr 原样 tee 到自己的 stdout，并在 BTG 启动/退出/重启、Web 就绪、恢复 helper 起停、外部进程接管、健康失败重启等关键节点打印一行带时间戳的彩色摘要（风格参考 Google-AI-Mode-Adapter：`HH:MM:SS [Tag] 消息`，`[Tag]` 按级别着色——cyan=info、green=success、yellow=warn、red=error，时间戳 dim）。仅在 stdout 是真 TTY 时着色，重定向/管道/session 0 自动降级为纯文本；设 `NO_COLOR` 环境变量可强制关闭。`start.bat` 启动时显示在桌面控制台窗口；session 0（计划任务 S4U）下 `process.stdout.write` 失败会被静默吞掉，不影响守护逻辑。
-- 恢复 helper 的 stdout/stderr 由守护进程解析后再打印：helper 输出的每行 JSON 记录（`skipped`/`restartClick`/`restartVerified`/页面探针等）被 `LineDecoder` 切分、`printRecoveryLine` 翻译成带级别颜色的 `[Recovery]` 摘要；日志文件 `job-recovery-*.log` 仍落 helper 原始输出（纯文本，不含 ANSI 码）。BTG 子进程的输出是自由文本（非 JSON），保持原样 tee 不做解析。
+- `consoleTee: true` 时，守护进程把 BTG 子进程 stdout/stderr 原样 tee 到自己的 stdout，并在 BTG 启动/退出/重启、Web 就绪、恢复 helper 起停、外部进程接管、健康失败重启等关键节点打印一行带时间戳的彩色摘要（风格参考 Google-AI-Mode-Adapter：`HH:MM:SS [Tag] 消息`，`[Tag]` 按级别着色——cyan=info、green=success、yellow=warn、red=error，时间戳 dim）。仅在 stdout 是真 TTY 时着色，重定向/管道/session 0 自动降级为纯文本；设 `NO_COLOR` 环境变量可强制关闭。`Start.bat` 启动时显示在桌面控制台窗口；session 0（计划任务 S4U）下 `process.stdout.write` 失败会被静默吞掉，不影响守护逻辑。
+- 恢复 helper 的 stdout/stderr 由守护进程解析后再打印：helper 输出的每行 JSON 记录（`skipped`/`restartClick`/`restartVerified`/页面探针等）被 `LineDecoder` 切分、`printRecoveryLine` 翻译成带级别颜色的 `[Recovery]` 摘要；日志文件 `Job-Recovery-*-Stdout.log / Job-Recovery-*-Stderr.log` 仍落 helper 原始输出（纯文本，不含 ANSI 码）。BTG 子进程的输出是自由文本（非 JSON），保持原样 tee 不做解析。
 - 路径防穿越：`executable`、`logDirectory`、`jobsFile`、`requiredFiles` 等相对路径经 `resolveInside` 校验不得逃逸出 BTG 应用目录或守护目录。
 - `acceptTerms` 必须显式布尔值。守护进程不会盲写输入；只有 BTG 输出命中“规约/条款 + Y/N”组合提示后，才向该次子进程写入一次 `Y`。
 - named pipe 单实例：管道名由 BTG 应用目录哈希生成，同一应用目录只能运行一个守护进程。
@@ -59,7 +59,7 @@ start.bat   一键启动入口
 
 ## 配置
 
-实际配置文件 `bili-ticket-go-task-auto-recovery.config.json` 不提交（含蹲票项目参数），从 `bili-ticket-go-task-auto-recovery.config.example.json` 复制后修改。
+实际配置文件 `Bili-Ticket-Go-Task-Auto-Recovery-Config.json` 不提交（含蹲票项目参数），从 `Bili-Ticket-Go-Task-Auto-Recovery-Config-Example.json` 复制后修改。
 
 关键项：
 
@@ -91,19 +91,19 @@ start.bat   一键启动入口
 
 ```powershell
 cd <守护目录>
-.\node.exe .\bili-ticket-go-task-auto-recovery.js status
-.\node.exe .\bili-ticket-go-task-auto-recovery.js restart
-.\node.exe .\bili-ticket-go-task-auto-recovery.js stop
+.\node.exe .\Bili-Ticket-Go-Task-Auto-Recovery.js status
+.\node.exe .\Bili-Ticket-Go-Task-Auto-Recovery.js restart
+.\node.exe .\Bili-Ticket-Go-Task-Auto-Recovery.js stop
 Invoke-RestMethod http://127.0.0.1:18081/health
 ```
 
 健康端点只监听 `127.0.0.1:18081`；`127.0.0.1:18080` 保留给 BTG Web，守护进程绝不绑定该端口。BTG 进程存在且 Web readiness 正常时返回 HTTP 200；进程存在但 Web 未就绪、连续失败、退避或检查阶段返回 503，JSON 提供 `btgReadiness` 详情。达连续失败阈值后只重启 managed BTG；外部 BTG 仅记录不健康，绝不误杀。
 
-日志写入 `bili-ticket-go-task-auto-recovery-logs`（按服务器本地日期切换）：
+日志写入 `Bili-Ticket-Go-Task-Auto-Recovery-Logs`（按服务器本地日期切换）：
 
-- `btg-YYYY-MM-DD.stdout.log` / `btg-YYYY-MM-DD.stderr.log`
-- `job-recovery-YYYY-MM-DD.stdout.log` / `job-recovery-YYYY-MM-DD.stderr.log`
-- `supervisor-YYYY-MM-DD.jsonl`（事件日志，`supervisor` 前缀是历史事件类型名，非目录名）
+- `Bili-Ticket-Go-YYYY-MM-DD-Stdout.log` / `Bili-Ticket-Go-YYYY-MM-DD-Stderr.log`
+- `Job-Recovery-YYYY-MM-DD-Stdout.log` / `Job-Recovery-YYYY-MM-DD-Stderr.log`
+- `Supervisor-YYYY-MM-DD-Events.jsonl`（事件日志，`supervisor` 前缀是历史事件类型名，非目录名）
 
 事件日志每行一个 JSON，`type` 字段标识事件，记录子进程 PID、启动参数、退出码、Windows 十六进制退出码、运行时长、退避、条款提示处理结果、helper 起停。
 
@@ -133,7 +133,7 @@ Invoke-RestMethod http://127.0.0.1:18081/health
 
 ### 事件日志关键类型
 
-`supervisor-YYYY-MM-DD.jsonl` 每行一个事件，`type` 字段标识：
+`Supervisor-YYYY-MM-DD-Events.jsonl` 每行一个事件，`type` 字段标识：
 
 - `btg-started` / `btg-exited`：BTG 子进程起停，含 PID、generation、退出码。
 - `btg-became-ready` / `btg-health-check-failed`：Web 就绪与探测失败。
@@ -145,7 +145,7 @@ Invoke-RestMethod http://127.0.0.1:18081/health
 
 ## 最近抢票任务恢复
 
-BTG 的 `/api/v1/query` 使用应用内部加密协议，不能安全猜测普通 REST 请求。因此默认启用同目录的 `bili-ticket-go-task-recover-latest.js` 浏览器 helper，并保持直接 endpoint 方式 `taskRecovery.enabled: false`。helper 必须与守护脚本放在同一目录。
+BTG 的 `/api/v1/query` 使用应用内部加密协议，不能安全猜测普通 REST 请求。因此默认启用同目录的 `Bili-Ticket-Go-Task-Recover-Latest.js` 浏览器 helper，并保持直接 endpoint 方式 `taskRecovery.enabled: false`。helper 必须与守护脚本放在同一目录。
 
 每一代 BTG 子进程启动后，守护进程先轮询确认 18080 Web readiness，再等待 `jobRecovery.readyDelayMs`（默认 2s），然后读 `data/web/order_jobs.json`。瞬态的文件缺失、共享冲突或 JSON 半写入会在同一代有限重试。当前 BTG 历史记录是 wrapper 结构，因此默认检查 `job.status`/`snapshot.state`，从 `job.id` 读 ID：
 
@@ -156,7 +156,7 @@ BTG 的 `/api/v1/query` 使用应用内部加密协议，不能安全猜测普�
 - BTG 退出时正在运行的 helper 及其 Edge 子进程树被终止，避免脱离守护。
 - 新 BTG generation 会等旧 helper 进程树确认退出后才启动，避免两代 helper 重叠点击。
 
-helper 用 `shell: false` 在守护目录运行，stdout/stderr 分别写入每日 `job-recovery-*.log`，事件日志记录 helper PID、generation、退出码、十六进制退出码、运行时长。
+helper 用 `shell: false` 在守护目录运行，stdout/stderr 分别写入每日 `Job-Recovery-*-Stdout.log / Job-Recovery-*-Stderr.log`，事件日志记录 helper PID、generation、退出码、十六进制退出码、运行时长。
 
 `jobRecovery.command` 默认 `{{node}}`，表示复用运行守护进程的同一个 `node.exe`；参数支持 `{{generation}}` 与 `{{jobsFile}}` 占位符。若 JSON 有外层结构，必须明确填 `jobsArrayPath`；BTG 升级后 schema 改变，必须同步修改 `jobIdPath` 和 `statusPaths`。
 
@@ -164,12 +164,12 @@ helper 自动识别 BTG 当前正在运行或历史最新运行的任务，无�
 
 ### 手动恢复最近抢票任务
 
-helper 用 `bili-ticket-go-task-recovery-state.json` 防止对同一 job 重复点击：若上次对某 `sourceJobId` 的尝试 `phase` 不是 `verified`，helper 拒绝再次点击同一 job。这个保护在正常 generation 轮替里无害，但若想让同一 BTG generation 重新尝试恢复，需先清掉锁并触发新 generation：
+helper 用 `Bili-Ticket-Go-Task-Recovery-State.json` 防止对同一 job 重复点击：若上次对某 `sourceJobId` 的尝试 `phase` 不是 `verified`，helper 拒绝再次点击同一 job。这个保护在正常 generation 轮替里无害，但若想让同一 BTG generation 重新尝试恢复，需先清掉锁并触发新 generation：
 
 ```powershell
 cd <守护目录>
-Remove-Item .\bili-ticket-go-task-recovery-state.json -Force -ErrorAction SilentlyContinue
-.\node.exe .\bili-ticket-go-task-auto-recovery.js restart
+Remove-Item .\Bili-Ticket-Go-Task-Recovery-State.json -Force -ErrorAction SilentlyContinue
+.\node.exe .\Bili-Ticket-Go-Task-Auto-Recovery.js restart
 ```
 
 `restart` 让 BTG 进出一个新 generation，守护进程在新 generation Web readiness 确认后重跑一次 helper（`oncePerGeneration`）。成功后锁文件写回 `phase: verified` 和新 `newJobId`。
@@ -178,7 +178,7 @@ Remove-Item .\bili-ticket-go-task-recovery-state.json -Force -ErrorAction Silent
 
 ## 浏览器恢复 helper 细节
 
-`bili-ticket-go-task-recover-latest.js` 用 headless Edge 的 CDP 协议（`--remote-debugging-port=0` 随机端口，读 `DevToolsActivePort` 文件获取）驱动：
+`Bili-Ticket-Go-Task-Recover-Latest.js` 用 headless Edge 的 CDP 协议（`--remote-debugging-port=0` 随机端口，读 `DevToolsActivePort` 文件获取）驱动：
 
 1. 读 `data/web/session_token` 与 `data/web/order_jobs.json`：无任务→退出 0 友好提示；有 active job→跳过；否则取最新 job，校验其 `can_execute` 为 true。
 2. 导航到 `http://127.0.0.1:18080/jobs`；若出现登录表单，把 token 作为 CDP 调用参数注入密码框并提交（token 仅作 `JSON.stringify` 后的 CDP 参数，从不打印）。
@@ -190,10 +190,17 @@ Remove-Item .\bili-ticket-go-task-recovery-state.json -Force -ErrorAction Silent
 
 ## 启动入口
 
-- **双击 `start.bat` 即开始守护**：脚本切到自身目录，优先用同目录便携 `node.exe`，找不到则回退 PATH 中的 `node`，运行 `bili-ticket-go-task-auto-recovery.js run`。
+- **双击 `Start.bat` 即开始守护**：脚本切到自身目录，优先用同目录便携 `node.exe`，找不到则回退 PATH 中的 `node`，运行 `Bili-Ticket-Go-Task-Auto-Recovery.js run`。
 - BTG 已运行 → 守护进程只监控不接管，BTG 退出后自动拉起并恢复最新任务；BTG 未运行 → 守护进程自动启动 BTG，Web 就绪后自动恢复最新一条任务。
-- Interactive 会话，进程生命周期绑定到 `start.bat` 打开的控制台窗口——**关闭窗口会杀死守护进程与 BTG 整棵进程树**（`0xC000013A`）。需要开机自启或断开 RDP 不死时，可自行用 `schtasks` 注册任务调用 `start.bat` 或直接调 `node bili-ticket-go-task-auto-recovery.js run`。
+- Interactive 会话，进程生命周期绑定到 `Start.bat` 打开的控制台窗口——**关闭窗口会杀死守护进程与 BTG 整棵进程树**（`0xC000013A`）。需要开机自启或断开 RDP 不死时，可自行用 `schtasks` 注册任务调用 `Start.bat` 或直接调 `node Bili-Ticket-Go-Task-Auto-Recovery.js run`。
 - 不再提供计划任务安装器；如需计划任务，外部自行注册即可。
+
+## 文件命名规范
+
+- 仓库自有文件使用大驼峰单词并以横杠分隔，例如 `Bili-Ticket-Go-Task-Recover-Latest.js`
+- 保留官方品牌和缩写写法，如 `Bili-Ticket-Go`、`BTG`、`CDP`
+- 保留生态或工具约定名称，如 `README.md`、`CLAUDE.md`、`CHANGELOG.md`、`LICENSE`、`.gitignore`、`node.exe`
+- 第三方 BTG 本体文件和数据路径不改名；自有运行时配置、状态及日志名称必须与代码和文档同步
 
 ## 依赖
 

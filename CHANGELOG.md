@@ -2,6 +2,18 @@
 
 CHANGELOG 层级结构：`#` 版本号 > `##` 日期 > `###` 模块 > `####` 分类（新增/修复/变更）。
 
+# 1.2.1
+
+## 2026-08-12
+
+### 框架
+
+#### 变更
+- 仓库自有脚本、配置模板、启动入口及运行时状态/日志名称统一为大驼峰横杠式，并同步更新全部代码、配置和文档引用
+- 主入口改为 `Bili-Ticket-Go-Task-Auto-Recovery.js`，配置改为 `Bili-Ticket-Go-Task-Auto-Recovery-Config.json`，恢复 helper 改为 `Bili-Ticket-Go-Task-Recover-Latest.js`
+- 启动入口改为 `Start.bat`，恢复状态和日志目录分别改为 `Bili-Ticket-Go-Task-Recovery-State.json` 与 `Bili-Ticket-Go-Task-Auto-Recovery-Logs`
+- 每日日志文件统一为 `Bili-Ticket-Go-YYYY-MM-DD-Stdout.log`、`Job-Recovery-YYYY-MM-DD-Stdout.log` 和 `Supervisor-YYYY-MM-DD-Events.jsonl` 等大驼峰横杠名称
+
 # 1.2.0
 
 ## 2026-07-28
@@ -17,19 +29,19 @@ CHANGELOG 层级结构：`#` 版本号 > `##` 日期 > `###` 模块 > `####` 分
 
 #### 变更
 - 关键节点摘要标签从内嵌英文 `[BTG]/[Recovery]` 改为结构化 `[Bili-Ticket-Go]/[Recovery]/[Supervisor]` Tag + 中文正文，例如 `[Bili-Ticket-Go] 已启动 — PID 67890，generation 7`、`[Recovery] 恢复成功 — job_000102 → job_000103（状态 queued…）`
-- 恢复 helper 的 stdout/stderr 不再原样 tee：日志文件 `job-recovery-*.log` 仍落 helper 原始输出，live 控制台改为经 `printRecoveryLine` 解析后的彩色摘要（BTG 自由文本输出仍原样 tee，不做解析）
+- 恢复 helper 的 stdout/stderr 不再原样 tee：日志文件 `Job-Recovery-*-Stdout.log / Job-Recovery-*-Stderr.log` 仍落 helper 原始输出，live 控制台改为经 `printRecoveryLine` 解析后的彩色摘要（BTG 自由文本输出仍原样 tee，不做解析）
 - 仅在 `process.stdout.isTTY` 为真且未设 `NO_COLOR` 时着色；重定向/管道/session 0 自动降级为纯文本，设 `NO_COLOR=1` 可强制关闭
 
 # 1.1.0
 
 ## 2026-07-27
 
-上手门槛大幅降低：双击 `start.bat` 即开始守护，无需装计划任务、无需手填项目参数，helper 自动识别任务。
+上手门槛大幅降低：双击 `Start.bat` 即开始守护，无需装计划任务、无需手填项目参数，helper 自动识别任务。
 
 ### 启动入口
 
 #### 新增
-- `start.bat` 一键启动入口：双击即开始守护，切到自身目录，优先用同目录便携 `node.exe`、回退 PATH 中的 `node`，运行 `bili-ticket-go-task-auto-recovery.js run`；找不到 Node 时友好提示
+- `Start.bat` 一键启动入口：双击即开始守护，切到自身目录，优先用同目录便携 `node.exe`、回退 PATH 中的 `node`，运行 `Bili-Ticket-Go-Task-Auto-Recovery.js run`；找不到 Node 时友好提示
 - BTG 已运行则监控不接管，BTG 未运行则自动启动并恢复最新任务，控制台窗口实时回显 BTG 输出与生命周期事件
 
 ### 浏览器恢复 helper
@@ -42,12 +54,12 @@ CHANGELOG 层级结构：`#` 版本号 > `##` 日期 > `###` 模块 > `####` 分
 ### 配置
 
 #### 变更
-- `bili-ticket-go-task-auto-recovery.config.example.json` 移除 `--project-id` 与 `--selected-date` 两个 args，开箱即用
+- `Bili-Ticket-Go-Task-Auto-Recovery-Config-Example.json` 移除 `--project-id` 与 `--selected-date` 两个 args，开箱即用
 
 ### 安装器
 
 #### 移除
-- 移除 `install-bili-ticket-go-task-auto-recovery.ps1` 计划任务安装器：双击 `start.bat` 取代安装器成为主入口，不再需要 elevated 会话注册计划任务。需要开机自启/断开 RDP 不死的用户可自行用 `schtasks` 注册任务调用入口
+- 移除 `install-bili-ticket-go-task-auto-recovery.ps1` 计划任务安装器：双击 `Start.bat` 取代安装器成为主入口，不再需要 elevated 会话注册计划任务。需要开机自启/断开 RDP 不死的用户可自行用 `schtasks` 注册任务调用入口
 
 # 1.0.0
 
@@ -58,7 +70,7 @@ CHANGELOG 层级结构：`#` 版本号 > `##` 日期 > `###` 模块 > `####` 分
 ### 守护进程
 
 #### 新增
-- 守护进程主程序 `bili-ticket-go-task-auto-recovery.js`：保活 BTG 子进程、健康监控、退避重启、调用恢复 helper。仅使用 Node.js 内置模块，无需 `npm install`
+- 守护进程主程序 `Bili-Ticket-Go-Task-Auto-Recovery.js`：保活 BTG 子进程、健康监控、退避重启、调用恢复 helper。仅使用 Node.js 内置模块，无需 `npm install`
 - BTG 始终通过 `spawn(..., { shell: false, cwd: <BTG 应用目录> })` 启动，启动参数来自配置且必须包含 `-web` 和 `-no-browser`
 - `consoleTee: true` 时把 BTG 子进程 stdout/stderr 原样 tee 到守护进程 stdout，并在 BTG 启动/退出/重启、Web 就绪、恢复 helper 起停、外部进程接管、健康失败重启等关键节点打印带时间戳摘要
 - 异常退出后退避序列 1/2/4/8/16/32/60s，最长 60s；连续运行 5 分钟（`resetAfterMs`）后下一次退出从 1s 重新计数
@@ -74,11 +86,11 @@ CHANGELOG 层级结构：`#` 版本号 > `##` 日期 > `###` 模块 > `####` 分
 ### 浏览器恢复 helper
 
 #### 新增
-- `bili-ticket-go-task-recover-latest.js`：用 Edge CDP 驱动 headless Edge 点击 BTG Web 的「恢复这个任务」按钮，并校验确实产生了新的 active job
+- `Bili-Ticket-Go-Task-Recover-Latest.js`：用 Edge CDP 驱动 headless Edge 点击 BTG Web 的「恢复这个任务」按钮，并校验确实产生了新的 active job
 - 登录态检测：BTG Web 出现登录表单时，读取 `data/web/session_token` 并通过 CDP 注入密码框提交登录；token 仅作为 CDP 调用参数传入，从不打印
 - 每一代 BTG 进程 Web 就绪后最多调用一次 helper（`oncePerGeneration`）；helper 超时、非零退出或被取消都落事件日志，不在同一代自动重放
 - BTG 退出时正在运行的 helper 及其 Edge 子进程树被终止，避免脱离守护；新 generation 等旧 helper 进程树确认退出后才启动，避免两代 helper 重叠点击
-- 恢复锁文件 `bili-ticket-go-task-recovery-state.json` 防止对同一 `sourceJobId` 重复点击：上次尝试 `phase` 非 `verified` 时拒绝再次点击同一 job
+- 恢复锁文件 `Bili-Ticket-Go-Task-Recovery-State.json` 防止对同一 `sourceJobId` 重复点击：上次尝试 `phase` 非 `verified` 时拒绝再次点击同一 job
 - 校验目标仍是最新记录、无 active job、项目 ID 与目标日期与配置一致，且只点击一次、必须观察到新 job ID 才以退出码 0 报告成功
 
 ### 安装器
@@ -92,7 +104,7 @@ CHANGELOG 层级结构：`#` 版本号 > `##` 日期 > `###` 模块 > `####` 分
 ### 配置
 
 #### 新增
-- `bili-ticket-go-task-auto-recovery.config.example.json` 配置模板：BTG 启动参数、健康端口、退避策略、任务恢复参数。实际配置文件 `.config.json` 不提交，含蹲票项目参数，由用户在 BTG Web 创建任务后自行填写
+- `Bili-Ticket-Go-Task-Auto-Recovery-Config-Example.json` 配置模板：BTG 启动参数、健康端口、退避策略、任务恢复参数。实际配置文件 `.config.json` 不提交，含蹲票项目参数，由用户在 BTG Web 创建任务后自行填写
 - 路径防穿越：`executable`、`logDirectory`、`jobsFile` 等相对路径校验不得逃逸出 BTG 应用目录或守护目录
 - `acceptTerms` 必须显式布尔；`supervisorHealth.host` 必须为 `127.0.0.1`
 

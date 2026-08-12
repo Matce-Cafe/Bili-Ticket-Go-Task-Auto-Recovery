@@ -15,7 +15,7 @@ const SUPERVISOR_DIR = path.resolve(__dirname);
 const APP_DIR = path.basename(SUPERVISOR_DIR).toLowerCase() === 'bili-ticket-go-task-auto-recovery'
   ? path.resolve(SUPERVISOR_DIR, '..')
   : SUPERVISOR_DIR;
-const CONFIG_PATH = path.join(SUPERVISOR_DIR, 'bili-ticket-go-task-auto-recovery.config.json');
+const CONFIG_PATH = path.join(SUPERVISOR_DIR, 'Bili-Ticket-Go-Task-Auto-Recovery-Config.json');
 const INSTANCE_KEY = crypto
   .createHash('sha256')
   .update(process.platform === 'win32' ? APP_DIR.toLowerCase() : APP_DIR)
@@ -79,7 +79,7 @@ class DailyFile {
 
   write(value) {
     try {
-      const filename = `${this.prefix}-${localDay()}.${this.suffix}`;
+      const filename = `${this.prefix}-${localDay()}-${this.suffix}`;
       fs.appendFileSync(path.join(this.directory, filename), value);
     } catch (error) {
       if (!this.warned) {
@@ -92,11 +92,11 @@ class DailyFile {
 
 class Logger {
   constructor(directory) {
-    this.events = new DailyFile(directory, 'supervisor', 'jsonl');
-    this.stdout = new DailyFile(directory, 'btg', 'stdout.log');
-    this.stderr = new DailyFile(directory, 'btg', 'stderr.log');
-    this.recoveryStdout = new DailyFile(directory, 'job-recovery', 'stdout.log');
-    this.recoveryStderr = new DailyFile(directory, 'job-recovery', 'stderr.log');
+    this.events = new DailyFile(directory, 'Supervisor', 'Events.jsonl');
+    this.stdout = new DailyFile(directory, 'Bili-Ticket-Go', 'Stdout.log');
+    this.stderr = new DailyFile(directory, 'Bili-Ticket-Go', 'Stderr.log');
+    this.recoveryStdout = new DailyFile(directory, 'Job-Recovery', 'Stdout.log');
+    this.recoveryStderr = new DailyFile(directory, 'Job-Recovery', 'Stderr.log');
   }
 
   event(type, fields = {}) {
@@ -229,7 +229,7 @@ function loadConfig() {
     consoleTee: raw.consoleTee === true,
     termsPromptPatterns,
     termsPromptPatternSources: raw.termsPromptPatterns.slice(),
-    logDirectory: resolveInsideSupervisor(raw.logDirectory || 'bili-ticket-go-task-auto-recovery-logs', 'logDirectory'),
+    logDirectory: resolveInsideSupervisor(raw.logDirectory || 'Bili-Ticket-Go-Task-Auto-Recovery-Logs', 'logDirectory'),
     supervisorHealth: {
       host: supervisorHealth.host,
       port: integerInRange(supervisorHealth.port, 'supervisorHealth.port', 1, 65535),
@@ -803,7 +803,7 @@ class Supervisor {
   }
 
   // 解析 helper 的一行 stdout/stderr（JSON 记录或纯文本），着色打印到 live 控制台。
-  // helper 输出的 JSON 记录含义见 bili-ticket-go-task-recover-latest.js。
+  // helper 输出的 JSON 记录含义见 Bili-Ticket-Go-Task-Recover-Latest.js。
   printRecoveryLine(line, streamName) {
     if (!this.config.consoleTee) return;
     let parsed = null;
@@ -1968,7 +1968,7 @@ async function main() {
   if (['status', 'stop', 'restart'].includes(command)) return runCommand(command);
   if (!['run', 'start'].includes(command)) {
     process.stderr.write(
-      'Usage: node bili-ticket-go-task-auto-recovery.js [run|status|stop|restart]\n',
+      'Usage: node Bili-Ticket-Go-Task-Auto-Recovery.js [run|status|stop|restart]\n',
     );
     return 64;
   }

@@ -15,7 +15,7 @@ const targetSelector = process.argv[2] || 'latest';
 const restartLatest = process.argv.includes('--restart-latest');
 const profileDir = path.join(os.tmpdir(), `btg-cdp-${process.pid}-${Date.now()}`);
 const jobsPath = path.join(appDir, 'data', 'web', 'order_jobs.json');
-const recoveryStatePath = path.join(supervisorDir, 'bili-ticket-go-task-recovery-state.json');
+const recoveryStatePath = path.join(supervisorDir, 'Bili-Ticket-Go-Task-Recovery-State.json');
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

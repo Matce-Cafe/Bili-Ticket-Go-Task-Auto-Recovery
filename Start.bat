@@ -28,7 +28,7 @@ echo [start] BTG 已运行则监控，未运行则自动启动并恢复最新任
 echo [start] 关闭本窗口即停止守护。
 echo.
 
-"%NODE_EXE%" "bili-ticket-go-task-auto-recovery.js" run
+"%NODE_EXE%" "Bili-Ticket-Go-Task-Auto-Recovery.js" run
 
 echo.
 echo [start] 守护进程已退出（退出码 %errorlevel%）。

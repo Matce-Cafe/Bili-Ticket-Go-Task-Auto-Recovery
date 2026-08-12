@@ -21,7 +21,7 @@ BTG 以 `btg-windows-amd64-dynamic.exe -web -no-browser` 长期运行蹲票，�
 - Windows 10/11 x64
 - [Bili-Ticket-Go](https://github.com/konaxia548/bili-ticket-go) 本体（`btg-windows-amd64-dynamic.exe` 及 `data/`、`log/`、`model/`）放在某个 BTG 应用目录，例如 `C:\Apps\Bili-Ticket-Go\`
 - Microsoft Edge（恢复 helper 通过 CDP 驱动 Edge 点击恢复按钮）
-- Node.js 22 或更新版本。把便携版 `node.exe` 放进守护目录即可，`start.bat` 会优先用它；找不到则回退到 PATH 中的 `node`。
+- Node.js 22 或更新版本。把便携版 `node.exe` 放进守护目录即可，`Start.bat` 会优先用它；找不到则回退到 PATH 中的 `node`。
 
 ### 目录布局
 
@@ -33,16 +33,16 @@ BTG 以 `btg-windows-amd64-dynamic.exe -web -no-browser` 长期运行蹲票，�
   model\
   Bili-Ticket-Go-Task-Auto-Recovery\   # 本仓库内容放这里
     node.exe
-    start.bat                          # 双击启动入口
-    bili-ticket-go-task-auto-recovery.js
-    bili-ticket-go-task-auto-recovery.config.json   # 从 .example.json 复制（可不改）
-    bili-ticket-go-task-recover-latest.js
-    bili-ticket-go-task-auto-recovery-logs\          # 运行时生成
+    Start.bat                          # 双击启动入口
+    Bili-Ticket-Go-Task-Auto-Recovery.js
+    Bili-Ticket-Go-Task-Auto-Recovery-Config.json   # 从 .example.json 复制（可不改）
+    Bili-Ticket-Go-Task-Recover-Latest.js
+    Bili-Ticket-Go-Task-Auto-Recovery-Logs\          # 运行时生成
 ```
 
 ### 1. 开始守护
 
-把本仓库内容放到 BTG 应用目录下的 `Bili-Ticket-Go-Task-Auto-Recovery\` 子目录，**双击 `start.bat`** 即可：
+把本仓库内容放到 BTG 应用目录下的 `Bili-Ticket-Go-Task-Auto-Recovery\` 子目录，**双击 `Start.bat`** 即可：
 
 - **BTG 已运行** → 守护进程只监控不接管，BTG 退出后自动拉起并恢复最新任务。
 - **BTG 未运行** → 守护进程自动启动 BTG，Web 就绪后自动恢复最新一条任务的执行。
@@ -57,7 +57,7 @@ BTG 以 `btg-windows-amd64-dynamic.exe -web -no-browser` 长期运行蹲票，�
 默认配置开箱即用，多数情况无需修改。如需调整，从模板复制一份：
 
 ```powershell
-Copy-Item .\bili-ticket-go-task-auto-recovery.config.example.json .\bili-ticket-go-task-auto-recovery.config.json
+Copy-Item .\Bili-Ticket-Go-Task-Auto-Recovery-Config-Example.json .\Bili-Ticket-Go-Task-Auto-Recovery-Config.json
 ```
 
 可调项：健康端口、退避策略、探测间隔、日志目录等。任务恢复的 project-id 与 selected-date **无需填写**——helper 自动从 BTG 任务记录识别。
@@ -66,9 +66,9 @@ Copy-Item .\bili-ticket-go-task-auto-recovery.config.example.json .\bili-ticket-
 
 ```powershell
 cd C:\Apps\Bili-Ticket-Go\Bili-Ticket-Go-Task-Auto-Recovery
-.\node.exe .\bili-ticket-go-task-auto-recovery.js status    # 查看
-.\node.exe .\bili-ticket-go-task-auto-recovery.js restart   # 重启 BTG（不重载配置）
-.\node.exe .\bili-ticket-go-task-auto-recovery.js stop      # 停止
+.\node.exe .\Bili-Ticket-Go-Task-Auto-Recovery.js status    # 查看
+.\node.exe .\Bili-Ticket-Go-Task-Auto-Recovery.js restart   # 重启 BTG（不重载配置）
+.\node.exe .\Bili-Ticket-Go-Task-Auto-Recovery.js stop      # 停止
 Invoke-RestMethod http://127.0.0.1:18081/health             # 健康
 ```
 
@@ -76,10 +76,10 @@ Invoke-RestMethod http://127.0.0.1:18081/health             # 健康
 
 | 文件 | 作用 |
 | --- | --- |
-| `start.bat` | 一键启动入口，双击即开始守护（优先用同目录 `node.exe`，回退 PATH） |
-| `bili-ticket-go-task-auto-recovery.js` | 守护进程主程序：保活 + 健康监控 + 退避重启 + 调用恢复 helper |
-| `bili-ticket-go-task-auto-recovery.config.example.json` | 配置模板，开箱即用，复制为 `.config.json` 后按需修改 |
-| `bili-ticket-go-task-recover-latest.js` | 浏览器恢复 helper：自动识别最新任务，用 Edge CDP 点击「恢复这个任务」并校验新 job |
+| `Start.bat` | 一键启动入口，双击即开始守护（优先用同目录 `node.exe`，回退 PATH） |
+| `Bili-Ticket-Go-Task-Auto-Recovery.js` | 守护进程主程序：保活 + 健康监控 + 退避重启 + 调用恢复 helper |
+| `Bili-Ticket-Go-Task-Auto-Recovery-Config-Example.json` | 配置模板，开箱即用，复制为 `.config.json` 后按需修改 |
+| `Bili-Ticket-Go-Task-Recover-Latest.js` | 浏览器恢复 helper：自动识别最新任务，用 Edge CDP 点击「恢复这个任务」并校验新 job |
 
 详细架构、安全边界、监控判据、任务恢复原理请参阅 [CLAUDE.md](CLAUDE.md)。
 

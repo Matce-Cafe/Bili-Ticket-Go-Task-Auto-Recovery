@@ -1,11 +1,11 @@
 # 实际配置文件含蹲票项目参数，不提交；从 .example.json 复制后修改
-bili-ticket-go-task-auto-recovery.config.json
+Bili-Ticket-Go-Task-Auto-Recovery-Config.json
 
 # 恢复状态锁文件（运行时生成）
-bili-ticket-go-task-recovery-state.json
+Bili-Ticket-Go-Task-Recovery-State.json
 
 # 运行日志与便携 Node
-bili-ticket-go-task-auto-recovery-logs/
+Bili-Ticket-Go-Task-Auto-Recovery-Logs/
 node.exe
 
 # IDE

@@ -10,7 +10,7 @@
     "(?:release|发布|发行).{0,120}(?:terms?|规约|规则|条款|协议|须知|免责声明).{0,240}(?:\\[?\\s*y(?:es)?\\s*[/\\\\]\\s*n(?:o)?\\s*\\]?|输入\\s*[Yy]|按\\s*[Yy])",
     "(?:accept|agree|同意|接受).{0,120}(?:terms?|规约|规则|条款|协议|须知|免责声明).{0,240}(?:\\[?\\s*y(?:es)?\\s*[/\\\\]\\s*n(?:o)?\\s*\\]?|输入\\s*[Yy]|按\\s*[Yy])"
   ],
-  "logDirectory": "bili-ticket-go-task-auto-recovery-logs",
+  "logDirectory": "Bili-Ticket-Go-Task-Auto-Recovery-Logs",
   "supervisorHealth": {
     "host": "127.0.0.1",
     "port": 18081
@@ -40,12 +40,12 @@
     "enabled": true,
     "command": "{{node}}",
     "args": [
-      "bili-ticket-go-task-recover-latest.js",
+      "Bili-Ticket-Go-Task-Recover-Latest.js",
       "latest",
       "--restart-latest"
     ],
     "requiredFiles": [
-      "bili-ticket-go-task-recover-latest.js"
+      "Bili-Ticket-Go-Task-Recover-Latest.js"
     ],
     "jobsFile": "data/web/order_jobs.json",
     "jobsArrayPath": "",
