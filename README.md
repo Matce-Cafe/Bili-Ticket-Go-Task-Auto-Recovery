@@ -81,7 +81,7 @@ Invoke-RestMethod http://127.0.0.1:18081/health             # 健康
 | `Bili-Ticket-Go-Task-Auto-Recovery-Config-Example.json` | 配置模板，开箱即用，复制为 `.config.json` 后按需修改 |
 | `Bili-Ticket-Go-Task-Recover-Latest.js` | 浏览器恢复 helper：自动识别最新任务，用 Edge CDP 点击「恢复这个任务」并校验新 job |
 
-详细架构、安全边界、监控判据、任务恢复原理请参阅 [CLAUDE.md](CLAUDE.md)。
+详细架构、安全边界、监控判据、任务恢复原理请参阅 [AGENTS.md](AGENTS.md)。
 
 ## 监控
 

@@ -1,4 +1,4 @@
-# CLAUDE.md — Bili-Ticket-Go-Task-Auto-Recovery
+# AGENTS.md — Bili-Ticket-Go-Task-Auto-Recovery
 
 ## 项目概述
 
@@ -199,7 +199,7 @@ Remove-Item .\Bili-Ticket-Go-Task-Recovery-State.json -Force -ErrorAction Silent
 
 - 仓库自有文件使用大驼峰单词并以横杠分隔，例如 `Bili-Ticket-Go-Task-Recover-Latest.js`
 - 保留官方品牌和缩写写法，如 `Bili-Ticket-Go`、`BTG`、`CDP`
-- 保留生态或工具约定名称，如 `README.md`、`CLAUDE.md`、`CHANGELOG.md`、`LICENSE`、`.gitignore`、`node.exe`
+- 保留生态或工具约定名称，如 `README.md`、`AGENTS.md`、`CHANGELOG.md`、`LICENSE`、`.gitignore`、`node.exe`
 - 第三方 BTG 本体文件和数据路径不改名；自有运行时配置、状态及日志名称必须与代码和文档同步
 
 ## 依赖
@@ -227,8 +227,8 @@ Remove-Item .\Bili-Ticket-Go-Task-Recovery-State.json -Force -ErrorAction Silent
 
 ## 文档同步
 
-- 每次修改功能、配置、架构后，必须同步更新 CLAUDE.md 中对应内容。
-- 尤其是新增/修改配置项、安全边界、监控判据、恢复逻辑等，确保 CLAUDE.md 与代码一致。
+- 每次修改功能、配置、架构后，必须同步更新 AGENTS.md 中对应内容。
+- 尤其是新增/修改配置项、安全边界、监控判据、恢复逻辑等，确保 AGENTS.md 与代码一致。
 - 每次修改功能、配置、架构后，必须同步更新 CHANGELOG.md。
 
 ## 更新日志
